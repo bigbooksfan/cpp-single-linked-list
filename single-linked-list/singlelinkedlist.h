@@ -1,5 +1,8 @@
 #pragma once
+
 #include <algorithm>
+//#include <cassert>
+#include <stdexcept>
 
 template <typename Type>
 class SingleLinkedList {
@@ -39,9 +42,9 @@ private:        // Basic Iterator
 		// Тип, используемый для хранения смещения между итераторами
 		using difference_type = std::ptrdiff_t;
 		// Тип указателя на итерируемое значение
-		using pointer = ValueType * ;
+		using pointer = ValueType*;
 		// Тип ссылки на итерируемое значение
-		using reference = ValueType & ;
+		using reference = ValueType&;
 
 		BasicIterator() = default;
 
@@ -65,7 +68,7 @@ private:        // Basic Iterator
 		}
 
 		[[nodiscard]] bool operator!=(const BasicIterator<const Type>& rhs) const noexcept {
-			return *this == rhs ? false : true;
+			return !(*this == rhs);
 		}
 
 		[[nodiscard]] bool operator==(const BasicIterator<Type>& rhs) const noexcept {
@@ -76,22 +79,32 @@ private:        // Basic Iterator
 			return *this == rhs ? false : true;
 		}
 
-		BasicIterator& operator++() noexcept {
+		// assert works in debug mode only. Throw - stays in release. But no "noexcept" annotation
+		BasicIterator& operator++() /*noexcept*/ {
+			// assert(this != nullptr);
+			if (this == nullptr)
+				throw std::out_of_range("++nullptr");
 			node_ = node_->next_node;
 			return *this;
 		}
 
-		BasicIterator operator++(int) noexcept {
+		BasicIterator operator++(int) /*noexcept*/ {
+			if (this == nullptr)
+				throw std::out_of_range("nullptr++");
 			BasicIterator tmp = *this;
 			++(*this);
 			return tmp;
 		}
 
-		[[nodiscard]] reference operator*() const noexcept {
+		[[nodiscard]] reference operator*() const /*noexcept*/ {
+			if (this == nullptr)
+				throw std::out_of_range("*nullptr");
 			return node_->value;
 		}
 
-		[[nodiscard]] pointer operator->() const noexcept {
+		[[nodiscard]] pointer operator->() const /*noexcept*/ {
+			if (this == nullptr)
+				throw std::out_of_range("nullptr->");
 			return &(node_->value);
 		}
 
@@ -101,7 +114,7 @@ private:        // Basic Iterator
 
 public:     // public iterators
 	using value_type = Type;
-	using reference = value_type & ;
+	using reference = value_type&;
 	using const_reference = const value_type&;
 
 	// Итератор, допускающий изменение элементов списка
@@ -124,20 +137,12 @@ public:     // public iterators
 	}
 
 	[[nodiscard]] Iterator end() noexcept {
-		Iterator ret(head_.next_node);
-		for (size_t i = 0; i < size_; ++i) {
-			ret.node_ = ret.node_->next_node;
-		}
+		Iterator ret(nullptr);
 		return ret;
 	}
-	
+
 	[[nodiscard]] ConstIterator end() const noexcept {
-		Node* tmp;
-		tmp = head_.next_node;
-		for (size_t i = 0; i < size_; ++i) {
-			tmp = tmp->next_node;
-		}
-		const Iterator ret(tmp);
+		const Iterator ret(nullptr);
 		return ret;
 	}
 
@@ -179,7 +184,7 @@ public:         // methods
 		++size_;
 		return ret;
 	}
-	
+
 	Iterator EraseAfter(ConstIterator pos) noexcept {
 		Node* to_delete = pos.node_->next_node;
 		pos.node_->next_node = to_delete->next_node;
@@ -235,7 +240,7 @@ size_t SingleLinkedList<Type>::GetSize() const noexcept
 
 template<typename Type>
 bool SingleLinkedList<Type>::IsEmpty() const noexcept {
-	return size_ == 0 ? true : false;
+	return size_ == 0;
 }
 
 template<typename Type>
@@ -276,14 +281,8 @@ void SingleLinkedList<Type>::Clear() noexcept {
 
 template<typename Type>
 void SingleLinkedList<Type>::swap(SingleLinkedList& other) noexcept {
-	Node* tmp = other.head_.next_node;
-	size_t sz_tmp = other.size_;
-
-	other.head_.next_node = head_.next_node;
-	other.size_ = size_;
-
-	head_.next_node = tmp;
-	size_ = sz_tmp;
+	std::swap(size_, other.size_);
+	std::swap(head_.next_node, other.head_.next_node);
 }
 
 template<typename Type>
@@ -296,7 +295,8 @@ void SingleLinkedList<Type>::PopFront() noexcept {
 
 template<typename Type>
 SingleLinkedList<Type>& SingleLinkedList<Type>::operator=(const SingleLinkedList<Type>& rhs) {
-	if (&rhs == this) return *this;
+	if (&rhs == this) 
+		return *this;
 	SingleLinkedList tmp(rhs);
 	this->swap(tmp);
 	return *this;
@@ -305,49 +305,39 @@ SingleLinkedList<Type>& SingleLinkedList<Type>::operator=(const SingleLinkedList
 
 template <typename Type>
 void swap(SingleLinkedList<Type>& lhs, SingleLinkedList<Type>& rhs) noexcept {
-	// Реализуйте обмен самостоятельно
 	lhs.swap(rhs);
 }
 
 template <typename Type>
 bool operator==(const SingleLinkedList<Type>& lhs, const SingleLinkedList<Type>& rhs) {
-	// Заглушка. Реализуйте сравнение самостоятельно
+	if (lhs.GetSize() != rhs.GetSize())
+		return false;
 	return std::equal(lhs.begin(), lhs.end(), rhs.begin());
 }
 
 template <typename Type>
 bool operator!=(const SingleLinkedList<Type>& lhs, const SingleLinkedList<Type>& rhs) {
-	// Заглушка. Реализуйте сравнение самостоятельно
-
-	if (lhs == rhs)
-		return false;
-	return true;
+	return lhs == rhs ? false : true;
 }
 
 template <typename Type>
 bool operator<(const SingleLinkedList<Type>& lhs, const SingleLinkedList<Type>& rhs) {
-	// Заглушка. Реализуйте сравнение самостоятельно
-	//return true;
-	bool ret = std::lexicographical_compare(lhs.begin(), lhs.end(), rhs.begin(), rhs.end(),
+	return std::lexicographical_compare(lhs.begin(), lhs.end(), rhs.begin(), rhs.end(),
 		[](Type left, Type right) { return left < right; });
-	return ret;
 }
 
 template <typename Type>
 bool operator<=(const SingleLinkedList<Type>& lhs, const SingleLinkedList<Type>& rhs) {
-	// Заглушка. Реализуйте сравнение самостоятельно
 	return !(lhs > rhs);
 }
 
 template <typename Type>
 bool operator>(const SingleLinkedList<Type>& lhs, const SingleLinkedList<Type>& rhs) {
-	// Заглушка. Реализуйте сравнение самостоятельно
 	return std::lexicographical_compare(lhs.begin(), lhs.end(), rhs.begin(), rhs.end(),
 		[](Type left, Type right) { return left > right; });
 }
 
 template <typename Type>
 bool operator>=(const SingleLinkedList<Type>& lhs, const SingleLinkedList<Type>& rhs) {
-	// Заглушка. Реализуйте сравнение самостоятельно
 	return !(lhs < rhs);
 }
